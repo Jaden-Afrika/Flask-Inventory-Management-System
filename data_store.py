@@ -1,90 +1,78 @@
-import requests
+from flask import Flask, request, jsonify
+import data_store
 
-BASE_URL = "http://127.0.0.1:5000"
+app = Flask(__name__)
 
-def view_inventory():
-    response = requests.get(f"{BASE_URL}/inventory")
-    items = response.json()
-    for item in items:
-        print(f"ID {item['id']}: {item['product_name']} | {item.get('brand','')} | KES {item.get('price')} | Qty: {item.get('quantity')}")
+@app.route("/api/inventory", methods=["GET"])
+def get_items():
+    items = data_store.get_all_items()
+    return jsonify(items), 200
 
-def add_item():
-    product_name = input("Product name: ")
-    brand = input("Brand: ")
-    price = float(input("Price: "))
-    quantity = int(input("Quantity: "))
-    barcode = input("Barcode: ")
-    data = {
-        "product_name": product_name,
-        "brand": brand,
-        "price": price,
-        "quantity": quantity,
-        "barcode": barcode
+inventory = [
+    {
+        "id": 1,
+        "product_name": "Laptop",
+        "brand": "Dell",
+        "price": 999.99,
+        "barcode": "123456789012",
+        "quantity": 10
+    },
+    {
+        "id": 2,
+        "product_name": "Smartphone",
+        "brand": "Apple",
+        "price": 699.99,
+        "barcode": "098765432109",
+        "quantity": 20
     }
-    response = requests.post(f"{BASE_URL}/inventory", json=data)
-    print(response.json())
+]
 
-def update_item():
-    item_id = int(input("Item ID to update: "))
-    product_name = input("New product name (leave blank to keep current): ")
-    brand = input("New brand (leave blank to keep current): ")
-    price_input = input("New price (leave blank to keep current): ")
-    quantity_input = input("New quantity (leave blank to keep current): ")
-    data = {}
-    if product_name:
-        data["product_name"] = product_name
-    if brand:
-        data["brand"] = brand
-    if price_input:
-        data["price"] = float(price_input)
-    if quantity_input:
-        data["quantity"] = int(quantity_input)
-    response = requests.patch(f"{BASE_URL}/inventory/{item_id}", json=data)
-    print(response.json())
+# Retrieve an item by its ID
+def get_item_by_id(item_id):
+    for item in inventory:
+        if item["id"] == item_id:
+            return item
+    return None
+# Retrieve all items in the inventory
+def get_all_items():
+    return inventory
 
-def delete_item():
-    item_id = int(input("Item ID to delete: "))
-    response = requests.delete(f"{BASE_URL}/inventory/{item_id}")
-    print(response.json())
 
-def fetch_from_api():
-    choice = input("Search by (b)arcode or (n)ame? ").strip().lower()
-    payload = {}
-    if choice == "b":
-        payload["barcode"] = input("Barcode: ")
-    else:
-        payload["name"] = input("Product name: ")
-    payload["price"] = float(input("Price to set: "))
-    payload["quantity"] = int(input("Quantity to set: "))
-    response = requests.post(f"{BASE_URL}/inventory/fetch", json=payload)
-    print(response.json())
+# Add a new item to the inventory
+def add_item(data):
+    new_id = max(item["id"] for item in inventory) + 1 if inventory else 1
+    new_item = {
+        "id": new_id,
+        "product_name": data.get("product_name"),
+        "brand": data.get("brand"),
+        "price": data.get("price"),
+        "barcode": data.get("barcode"),
+        "quantity": data.get("quantity")
+    }
+    inventory.append(new_item)
+    return new_item
 
-def main_menu():
-    while True:
-        print("\n--- Inventory CLI ---")
-        print("1. View inventory")
-        print("2. Add item")
-        print("3. Update item")
-        print("4. Delete item")
-        print("5. Fetch item from OpenFoodFacts")
-        print("6. Exit")
-        choice = input("Choose an option: ")
 
-        if choice == "1":
-            view_inventory()
-        elif choice == "2":
-            add_item()
-        elif choice == "3":
-            update_item()
-        elif choice == "4":
-            delete_item()
-        elif choice == "5":
-            fetch_from_api()
-        elif choice == "6":
-            print("Goodbye!")
-            break
-        else:
-            print("Invalid option, try again.")
+# Update an existing item in the inventory
+def update_item(item_id, data):
+    item = get_item_by_id(item_id)
+    if item:
+        item["product_name"] = data.get("product_name", item["product_name"])
+        item["brand"] = data.get("brand", item["brand"])
+        item["price"] = data.get("price", item["price"])
+        item["barcode"] = data.get("barcode", item["barcode"])
+        item["quantity"] = data.get("quantity", item["quantity"])
+        return item
+    return None
+
+
+# Delete an item from the inventory
+def delete_item(item_id):
+    item = get_item_by_id(item_id)
+    if item:
+        inventory.remove(item)
+        return True
+    return False
 
 if __name__ == "__main__":
-    main_menu()
+    app.run(debug=True)
